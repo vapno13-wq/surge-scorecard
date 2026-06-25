@@ -228,6 +228,7 @@
   </div>
 
   <p class="bench-note">Benchmark (100%): <span>stretnutia 2 · noví leady 5 · follow-upy 5 · posun statusu 2</span> &nbsp;|&nbsp; váhy 2:5:5:2</p>
+  <p id="notion-status" style="font-size:12px;color:#c9a227;text-align:right;margin-top:-8px;margin-bottom:1rem;min-height:18px;"></p>
 
   <div class="persons">
     <!-- OB -->
@@ -241,7 +242,7 @@
       </div>
       <div class="pcard-body">
         <div class="irow">
-          <label>Nové stretnutia<span class="sublabel">min. 2 / týždeň ⚑</span></label>
+          <label>Nové stretnutia<span class="sublabel">auto z Notion · min. 2 ⚑</span></label>
           <div class="bar-wrap"><div class="bar-fill" id="ob-mb"></div></div>
           <input type="number" id="ob-m" min="0" value="0" oninput="calc()">
         </div>
@@ -274,7 +275,7 @@
       </div>
       <div class="pcard-body">
         <div class="irow">
-          <label>Nové stretnutia<span class="sublabel">min. 2 / týždeň ⚑</span></label>
+          <label>Nové stretnutia<span class="sublabel">auto z Notion · min. 2 ⚑</span></label>
           <div class="bar-wrap"><div class="bar-fill" id="jm-mb"></div></div>
           <input type="number" id="jm-m" min="0" value="0" oninput="calc()">
         </div>
@@ -494,7 +495,22 @@ const s=new Date(y,0,1),wn=Math.ceil(((now-s)/864e5+s.getDay()+1)/7);
 wp.value=`${y}-W${String(wn).padStart(2,'0')}`;
 document.getElementById('wlbl').textContent=wlbl(wp.value);
 wp.addEventListener('change',()=>document.getElementById('wlbl').textContent=wlbl(wp.value));
-calc();(async()=>{await renderH();})();
+calc();
+(async()=>{
+  await renderH();
+  // Nacitaj pocty stretnutí z Notion
+  document.getElementById('notion-status').textContent='Načítavam stretnutia z Notion…';
+  const r=await jsonpCall({action:'notion'});
+  if(r.ok&&r.data&&typeof r.data.ob!=='undefined'){
+    document.getElementById('ob-m').value=r.data.ob;
+    document.getElementById('jm-m').value=r.data.jm;
+    calc();
+    document.getElementById('notion-status').textContent='✓ Stretnutia načítané z Notion (Initial Contact tento týždeň)';
+    setTimeout(()=>document.getElementById('notion-status').textContent='',5000);
+  } else {
+    document.getElementById('notion-status').textContent='';
+  }
+})();
 </script>
 </body>
 </html>
