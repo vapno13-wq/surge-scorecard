@@ -407,36 +407,43 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwgUKtdXG5VOjOLGAUk8
 function lsGet(){try{return JSON.parse(localStorage.getItem('surge_sc_v1')||'[]');}catch{return[];}}
 function lsSet(h){try{localStorage.setItem('surge_sc_v1',JSON.stringify(h));}catch{}}
 
-function remoteGet(){
+function jsonpCall(params){
   return new Promise(function(resolve){
     const cb='sc_'+Date.now();
+    const sid='jsonp_'+cb;
     window[cb]=function(data){
       delete window[cb];
-      const s=document.getElementById('jsonp_sc');
+      const s=document.getElementById(sid);
       if(s)s.remove();
-      lsSet(data);
-      resolve(data);
+      resolve({ok:true,data:data});
     };
     const s=document.createElement('script');
-    s.id='jsonp_sc';
-    s.src=SCRIPT_URL+'?callback='+cb+'&t='+Date.now();
+    s.id=sid;
+    params.callback=cb;
+    params.t=Date.now();
+    const qs=Object.keys(params).map(k=>k+'='+encodeURIComponent(typeof params[k]==='object'?JSON.stringify(params[k]):params[k])).join('&');
+    s.src=SCRIPT_URL+'?'+qs;
     s.onerror=function(){
       delete window[cb];
       s.remove();
-      resolve(lsGet());
+      resolve({ok:false});
     };
+    setTimeout(function(){
+      if(window[cb]){delete window[cb];s.remove();resolve({ok:false});}
+    },8000);
     document.head.appendChild(s);
   });
 }
 
+async function remoteGet(){
+  const r=await jsonpCall({action:'load'});
+  if(r.ok&&Array.isArray(r.data)){lsSet(r.data);return r.data;}
+  return lsGet();
+}
+
 async function remotePost(entry){
-  try{
-    await fetch(SCRIPT_URL,{method:'POST',mode:'no-cors',body:JSON.stringify(entry)});
-    return true;
-  }catch(e){
-    console.warn('Apps Script POST zlyhal',e);
-    return false;
-  }
+  const r=await jsonpCall({action:'save',data:entry});
+  return r.ok;
 }
 
 async function save(){
