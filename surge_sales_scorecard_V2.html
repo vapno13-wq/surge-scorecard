@@ -407,21 +407,31 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwgUKtdXG5VOjOLGAUk8
 function lsGet(){try{return JSON.parse(localStorage.getItem('surge_sc_v1')||'[]');}catch{return[];}}
 function lsSet(h){try{localStorage.setItem('surge_sc_v1',JSON.stringify(h));}catch{}}
 
-async function remoteGet(){
-  try{
-    const r=await fetch(SCRIPT_URL,{redirect:'follow'});
-    const d=await r.json();
-    lsSet(d);
-    return d;
-  }catch(e){
-    console.warn('Apps Script nedostupny, pouzivam lokalnu historiu',e);
-    return lsGet();
-  }
+function remoteGet(){
+  return new Promise(function(resolve){
+    const cb='sc_'+Date.now();
+    window[cb]=function(data){
+      delete window[cb];
+      const s=document.getElementById('jsonp_sc');
+      if(s)s.remove();
+      lsSet(data);
+      resolve(data);
+    };
+    const s=document.createElement('script');
+    s.id='jsonp_sc';
+    s.src=SCRIPT_URL+'?callback='+cb+'&t='+Date.now();
+    s.onerror=function(){
+      delete window[cb];
+      s.remove();
+      resolve(lsGet());
+    };
+    document.head.appendChild(s);
+  });
 }
 
 async function remotePost(entry){
   try{
-    await fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify(entry)});
+    await fetch(SCRIPT_URL,{method:'POST',mode:'no-cors',body:JSON.stringify(entry)});
     return true;
   }catch(e){
     console.warn('Apps Script POST zlyhal',e);
@@ -439,7 +449,7 @@ async function save(){
   const h=lsGet().filter(x=>x.week!==w);h.unshift(e);lsSet(h);
   document.getElementById('smsg').textContent='Ukladám do Sheets…';
   const ok=await remotePost(e);
-  document.getElementById('smsg').textContent=ok?'Uložené ✓ (Sheets + lokálne)':'Uložené lokálne (Sheets nedostupný)';
+  document.getElementById('smsg').textContent=ok?'Uložené ✓ (Sheets + lokálne)':'Uložené lokálne (Sheets nedostupný – skontroluj Apps Script)';
   setTimeout(()=>document.getElementById('smsg').textContent='',4000);
   await renderH();
 }
